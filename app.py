@@ -1,64 +1,63 @@
-from tensorflowTesting import testing
-##import tensorflow as tf
-from keras.models import load_model
-import cv2
-import numpy as np
-import os
-
-from PIL import ImageTk, Image, ImageDraw
-import PIL
 import tkinter as tk
-from tkinter import *
+from PIL import Image, ImageOps, ImageGrab
+import numpy as np
+from tensorflow.keras.models import load_model
 
-classes=[0,1,2,3,4,5,6,7,8,9]
-width = 500
-height = 500
-center = height//2
-white = (255, 255, 255)
-green = (0,128,0)
+# Memuat model yang telah dilatih
+model = load_model('mnist_trained_model.h5')
 
-def paint(event):
-    x1, y1 = (event.x - 10), (event.y - 10)
-    x2, y2 = (event.x + 10), (event.y + 10)
-    cv.create_oval(x1, y1, x2, y2, fill="black",width=40)
-    draw.line([x1, y1, x2, y2],fill="black",width=40)
-def model():
-    filename = "image.png"
-    image1.save(filename)
-    pred=testing()
-    print('argmax',np.argmax(pred[0]),'\n',
-          pred[0][np.argmax(pred[0])],'\n',classes[np.argmax(pred[0])])
-    txt.insert(tk.INSERT,"{}\nAccuracy: {}%".format(classes[np.argmax(pred[0])],round(pred[0][np.argmax(pred[0])]*100,3)))
-    
-def clear():
-    cv.delete('all')
-    draw.rectangle((0, 0, 500, 500), fill=(255, 255, 255, 0))
-    txt.delete('1.0', END)
+class DigitRecognizerApp:
+    def __init__(self, root):
+        self.root = root
+        self.root.title("Digit Recognizer")
 
-root = Tk()
-##root.geometry('1000x500') 
+        self.canvas = tk.Canvas(root, width=400, height=400, bg='white')
+        self.canvas.pack()
 
-root.resizable(0,0)
-cv = Canvas(root, width=width, height=height, bg='white')
-cv.pack()
+        # Mengubah ketebalan kuas
+        self.brush_size = 20
 
-# PIL create an empty image and draw object to draw on
-# memory only, not visible
-image1 = PIL.Image.new("RGB", (width, height), white)
-draw = ImageDraw.Draw(image1)
+        self.canvas.bind("<B1-Motion>", self.paint)
 
-txt=tk.Text(root,bd=3,exportselection=0,bg='WHITE',font='Helvetica',
-            padx=10,pady=10,height=5,width=20)
+        self.button_clear = tk.Button(root, text="Clear", command=self.clear)
+        self.button_clear.pack()
 
-cv.pack(expand=YES, fill=BOTH)
-cv.bind("<B1-Motion>", paint)
+        self.button_recognize = tk.Button(root, text="Recognize", command=self.recognize)
+        self.button_recognize.pack()
 
-##button=Button(text="save",command=save)
-btnModel=Button(text="Predict",command=model)
-btnClear=Button(text="clear",command=clear)
-##button.pack()
-btnModel.pack()
-btnClear.pack()
-txt.pack()
-root.title('digit recognizer---- Shafin Hasnat')
+    def paint(self, event):
+        x1, y1 = (event.x - self.brush_size), (event.y - self.brush_size)
+        x2, y2 = (event.x + self.brush_size), (event.y + self.brush_size)
+        self.canvas.create_oval(x1, y1, x2, y2, fill='black', width=self.brush_size)
+
+    def clear(self):
+        self.canvas.delete("all")
+
+    def recognize(self):
+        # Menangkap gambar dari canvas
+        x = self.root.winfo_rootx() + self.canvas.winfo_x()
+        y = self.root.winfo_rooty() + self.canvas.winfo_y()
+        x1 = x + self.canvas.winfo_width()
+        y1 = y + self.canvas.winfo_height()
+        image = ImageGrab.grab().crop((x, y, x1, y1)).convert('L')
+        
+        # Menginversi warna gambar dan meresize
+        image = ImageOps.invert(image)
+        image = image.resize((28, 28))
+        image = np.array(image)
+        
+        # Normalisasi gambar
+        image = image / 255.0
+        image = image.reshape(1, 28, 28, 1)
+        
+        # Mengenali gambar menggunakan model yang telah dilatih
+        prediction = model.predict(image)
+        digit = np.argmax(prediction)
+        
+        # Menampilkan digit yang dikenali
+        self.canvas.create_text(200, 200, text=str(digit), font=("Purisa", 48), fill='red')
+
+# Menginisialisasi aplikasi Tkinter
+root = tk.Tk()
+app = DigitRecognizerApp(root)
 root.mainloop()
